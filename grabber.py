@@ -4,35 +4,65 @@ from openpyxl.drawing.image import Image
 from datetime import datetime
 from io import BytesIO
 from urllib.request import urlopen
+import requests
+import json
+import argparse
 
-def getImage(url):
+PROFILE_IMAGE_WIDTH = 16
+PROFILE_IMAGE_HEIGHT = 115 
+
+def getImageFromUrl(url):
     image_data = BytesIO(urlopen(url).read())
     return Image(image_data)
 
-filename = "insta_followers_output_{}.xlsx".format(datetime.now().strftime("%y%m%d%H%M%S%f")[: -3])
+def setupSpreadSheet(sheet):
+    sheet["A1"] = "pk"
+    sheet["B1"] = "username"
+    sheet["C1"] = "full_name"
+    sheet["D1"] = "is_private"
+    sheet["E1"] = "profile_pic"
+    sheet["E1"] = "profile_pic_url"
+    sheet.column_dimensions['E'].width = PROFILE_IMAGE_WIDTH
 
-workbook = Workbook()
-sheet = workbook.active
+def getSpreadSheetName():
+    return "insta_followers_output_{}.xlsx".format(datetime.now().strftime("%y%m%d%H%M%S%f")[: -3])
 
-sheet["A1"] = "pk"
-sheet["B1"] = "username"
-sheet["C1"] = "full_name"
-sheet["D1"] = "is_private"
-sheet["E1"] = "profile_pic"
-sheet["E1"] = "profile_pic_url"
+def getFollowers(pk, xIgAppId, cookie):
+    headers = {"x-ig-app-id": xIgAppId, "cookie": cookie}
+    response = requests.get("https://www.instagram.com/api/v1/friendships/{}/followers/".format(pk), headers=headers)
+    
+    for resp in response.history:
+        print(resp.url, resp.text)
 
-workbook.save(filename=filename)
+    try:
+        print(response.text)
+        return response.json()
+    except ValueError:
+        print("Failed getting followers.")
 
 
-url = 'https://instagram.fuba2-1.fna.fbcdn.net/v/t51.2885-19/309284379_584430120131402_665952330297638628_n.jpg?stp=dst-jpg_s150x150&_nc_ht=instagram.fuba2-1.fna.fbcdn.net&_nc_cat=102&_nc_ohc=MubAgD_6yYQAX_5NoAj&edm=ALB854YBAAAA&ccb=7-5&oh=00_AfDYedXZlF3wp4NDBHuRCQaCQVpHdwRETXE6ULzuELnlrw&oe=6387E5C7&_nc_sid=04cb80'
-url2 = 'https://instagram.fuba2-1.fna.fbcdn.net/v/t51.2885-19/181868110_211938730449739_6172104992184472384_n.jpg?stp=dst-jpg_s150x150&_nc_ht=instagram.fuba2-1.fna.fbcdn.net&_nc_cat=107&_nc_ohc=cM0D7nmiJwMAX-u6yIM&edm=ALB854YBAAAA&ccb=7-5&oh=00_AfA8ILjJ4l72fKwUpXyXHSAHyCL05qyrqBxcx7Q_nTC4kg&oe=6386AB89&_nc_sid=04cb80'
+def getArgs():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('pk', help='Target Instagram account ID')
+    parser.add_argument('xIgAppId', help='Your Instagram app ID')
+    parser.add_argument('cookie', help='Instagram cookie from browser')
+    return parser.parse_args()
 
-sheet.add_image(getImage(url), "E2")
-sheet.add_image(getImage(url2), "E3")
+def main():
+    args = getArgs()
 
-sheet.row_dimensions[2].height = 115
-sheet.row_dimensions[3].height = 115
-sheet.column_dimensions['E'].width = 16
+    # workbook = Workbook()
+    # sheet = workbook.active
+    # setupSpreadSheet(sheet)
 
-workbook.save(filename=filename)
+    followers = getFollowers(args.pk, args.xIgAppId, args.cookie)
+
+    for user in followers["users"]:
+        print(user["username"])
+
+    # sheet.row_dimensions[2].height = PROFILE_IMAGE_HEIGHT
+    # workbook.save(filename=getSpreadSheetName())
+
+if __name__ == '__main__':
+    main()
 
