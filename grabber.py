@@ -8,6 +8,7 @@ import requests
 import json
 import argparse
 
+GENERAL_WIDTH = 18
 PROFILE_IMAGE_WIDTH = 16
 PROFILE_IMAGE_HEIGHT = 115 
 
@@ -22,6 +23,10 @@ def setupSpreadSheet(sheet):
     sheet["D1"] = "is_private"
     sheet["E1"] = "profile_pic"
     sheet["E1"] = "profile_pic_url"
+    
+    sheet.column_dimensions['A'].width = GENERAL_WIDTH
+    sheet.column_dimensions['B'].width = GENERAL_WIDTH
+    sheet.column_dimensions['C'].width = PROFILE_IMAGE_WIDTH
     sheet.column_dimensions['E'].width = PROFILE_IMAGE_WIDTH
 
 def getSpreadSheetName():
@@ -40,7 +45,6 @@ def getFollowers(pk, xIgAppId, cookie):
     except ValueError:
         print("Failed getting followers.")
 
-
 def getArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('pk', help='Target Instagram account ID')
@@ -51,17 +55,28 @@ def getArgs():
 def main():
     args = getArgs()
 
-    # workbook = Workbook()
-    # sheet = workbook.active
-    # setupSpreadSheet(sheet)
+    workbook = Workbook()
+    sheet = workbook.active
+    setupSpreadSheet(sheet)
 
     followers = getFollowers(args.pk, args.xIgAppId, args.cookie)
 
-    for user in followers["users"]:
-        print(user["username"])
+    for index, element in enumerate(followers["users"]):
+        rowNumber = index + 2
 
-    # sheet.row_dimensions[2].height = PROFILE_IMAGE_HEIGHT
-    # workbook.save(filename=getSpreadSheetName())
+        sheet["A{}".format(rowNumber)] = element["pk"]
+        sheet["B{}".format(rowNumber)] = element["username"]
+        sheet["C{}".format(rowNumber)] = element["full_name"]
+        sheet["D{}".format(rowNumber)] = element["is_private"]
+        sheet["F{}".format(rowNumber)] = element["profile_pic_url"]
+
+        sheet.row_dimensions[rowNumber].height = PROFILE_IMAGE_HEIGHT
+        
+        sheet.add_image(getImageFromUrl(element["profile_pic_url"]), "E{}".format(rowNumber))
+
+        print("User {} ({}) added".format(str(index + 1), element["username"]))
+
+    workbook.save(filename=getSpreadSheetName())
 
 if __name__ == '__main__':
     main()
