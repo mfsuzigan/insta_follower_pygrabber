@@ -26,7 +26,7 @@ def setupSpreadSheet(sheet):
     
     sheet.column_dimensions['A'].width = GENERAL_WIDTH
     sheet.column_dimensions['B'].width = GENERAL_WIDTH
-    sheet.column_dimensions['C'].width = PROFILE_IMAGE_WIDTH
+    sheet.column_dimensions['C'].width = GENERAL_WIDTH
     sheet.column_dimensions['E'].width = PROFILE_IMAGE_WIDTH
 
 def getSpreadSheetName():
@@ -71,12 +71,13 @@ def main():
         sheet["F{}".format(rowNumber)] = element["profile_pic_url"]
 
         sheet.row_dimensions[rowNumber].height = PROFILE_IMAGE_HEIGHT
-        
-        sheet.add_image(getImageFromUrl(element["profile_pic_url"]), "E{}".format(rowNumber))
+        profileImage = getImageFromUrl(element["profile_pic_url"])
+        sheet.add_image(profileImage, "E{}".format(rowNumber))
 
-        print("User {} ({}) added".format(str(index + 1), element["username"]))
+        print("Follower {} added to spreadsheet".format(element["username"]))
 
     workbook.save(filename=getSpreadSheetName())
+    print("\nFinished. Total of {} followers added to spreadsheet.".format(len(followers["users"])))
 
 if __name__ == '__main__':
     main()
