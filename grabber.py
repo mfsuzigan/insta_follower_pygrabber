@@ -10,7 +10,8 @@ import argparse
 
 GENERAL_WIDTH = 18
 PROFILE_IMAGE_WIDTH = 16
-PROFILE_IMAGE_HEIGHT = 115 
+PROFILE_IMAGE_HEIGHT = 115
+INITIAL_FOLLOWERS_REQUEST_MAX_ID = -1
 
 def getImageFromUrl(url):
     image_data = BytesIO(urlopen(url).read())
@@ -22,7 +23,7 @@ def setupSpreadSheet(sheet):
     sheet["C1"] = "full_name"
     sheet["D1"] = "is_private"
     sheet["E1"] = "profile_pic"
-    sheet["E1"] = "profile_pic_url"
+    sheet["F1"] = "profile_pic_url"
     
     sheet.column_dimensions['A'].width = GENERAL_WIDTH
     sheet.column_dimensions['B'].width = GENERAL_WIDTH
@@ -32,9 +33,14 @@ def setupSpreadSheet(sheet):
 def getSpreadSheetName():
     return "insta_followers_output_{}.xlsx".format(datetime.now().strftime("%y%m%d%H%M%S%f")[: -3])
 
-def getFollowers(pk, xIgAppId, cookie):
+def getFollowers(pk, xIgAppId, cookie, nextMaxId):
     headers = {"x-ig-app-id": xIgAppId, "cookie": cookie}
-    response = requests.get("https://www.instagram.com/api/v1/friendships/{}/followers/".format(pk), headers=headers)
+    params = None
+
+    if nextMaxId and not nextMaxId == INITIAL_FOLLOWERS_REQUEST_MAX_ID:
+        params = {"next_max_id": nextMaxId}
+
+    response = requests.get("https://www.instagram.com/api/v1/friendships/{}/followers/".format(pk), headers=headers, params=params)
     
     for resp in response.history:
         print(resp.url, resp.text)
@@ -52,15 +58,7 @@ def getArgs():
     parser.add_argument('cookie', help='Instagram cookie from browser')
     return parser.parse_args()
 
-def main():
-    args = getArgs()
-
-    workbook = Workbook()
-    sheet = workbook.active
-    setupSpreadSheet(sheet)
-
-    followers = getFollowers(args.pk, args.xIgAppId, args.cookie)
-
+def writeFollowers(followers, sheet):
     for index, element in enumerate(followers["users"]):
         rowNumber = index + 2
 
@@ -76,8 +74,32 @@ def main():
 
         print("Follower {} added to spreadsheet".format(element["username"]))
 
+def main():
+    args = getArgs()
+
+    workbook = Workbook()
+    sheet = workbook.active
+    setupSpreadSheet(sheet)
+
+    shouldGetFollowers = True
+    nextMaxId = INITIAL_FOLLOWERS_REQUEST_MAX_ID
+    followersCounter = 0
+
+    while shouldGetFollowers:
+        followers = getFollowers(args.pk, args.xIgAppId, args.cookie, nextMaxId)
+        writeFollowers(followers, sheet)
+        followersCounter += len(followers)
+
+        print("Followers added: {}; next_max_id: {}".format(followersCounter, followers["next_max_id"]))
+
+        if "next_max_id" in followers:
+            nextMaxId = followers["next_max_id"]
+
+        else:
+            break        
+
     workbook.save(filename=getSpreadSheetName())
-    print("\nFinished. Total of {} followers added to spreadsheet.".format(len(followers["users"])))
+    print("\nFinished. Total of {} followers added to spreadsheet.".format(len(followersCounter)))
 
 if __name__ == '__main__':
     main()
