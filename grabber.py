@@ -32,8 +32,9 @@ def setupSpreadSheet(sheet):
     sheet.column_dimensions['C'].width = GENERAL_WIDTH
     sheet.column_dimensions['E'].width = PROFILE_IMAGE_WIDTH
 
-def getSpreadSheetName():
-    return "insta_followers_output_{}.xlsx".format(datetime.now().strftime("%y%m%d%H%M%S%f")[: -3])
+def getSpreadSheetName(pk):
+    identifier = datetime.now().strftime("%y%m%d%H%M%S%f")[: -3]
+    return f"insta_followers_account_{pk}_output--{identifier}.xlsx"
 
 def getFollowers(pk, xIgAppId, cookie, nextMaxId):
     headers = {"x-ig-app-id": xIgAppId, "cookie": cookie}
@@ -42,7 +43,8 @@ def getFollowers(pk, xIgAppId, cookie, nextMaxId):
     if nextMaxId and not nextMaxId == INITIAL_FOLLOWERS_REQUEST_MAX_ID:
         params = {"max_id": nextMaxId}
 
-    response = requests.get("https://www.instagram.com/api/v1/friendships/{}/followers/".format(pk), headers=headers, params=params)
+    # response = requests.get(f"https://www.instagram.com/api/v1/friendships/{pk}/followers/", headers=headers, params=params)
+    response = requests.get("http://localhost:8000", headers=headers, params=params)
         
     try:
         # print(response.text)
@@ -61,17 +63,17 @@ def writeFollowers(followers, sheet, currentRow):
     for index, element in enumerate(followers["users"]):
         rowNumber = index + currentRow + 1
 
-        sheet["A{}".format(rowNumber)] = element["pk"]
-        sheet["B{}".format(rowNumber)] = element["username"]
-        sheet["C{}".format(rowNumber)] = element["full_name"]
-        sheet["D{}".format(rowNumber)] = str(bool(element["is_private"]))
-        sheet["F{}".format(rowNumber)] = element["profile_pic_url"]
+        sheet[f"A{rowNumber}"] = element["pk"]
+        sheet[f"B{rowNumber}"] = element["username"]
+        sheet[f"C{rowNumber}"] = element["full_name"]
+        sheet[f"D{rowNumber}"] = str(bool(element["is_private"]))
+        sheet[f"F{rowNumber}"] = element["profile_pic_url"]
 
         sheet.row_dimensions[rowNumber].height = PROFILE_IMAGE_HEIGHT
         profileImage = getImageFromUrl(element["profile_pic_url"])
-        sheet.add_image(profileImage, "E{}".format(rowNumber))
+        sheet.add_image(profileImage, f"E{rowNumber}")
 
-        print("Follower {} added to spreadsheet".format(element["username"]))
+        print(f"Follower {element['username']} added to spreadsheet")
 
 def main():
     args = getArgs()
@@ -88,7 +90,7 @@ def main():
         writeFollowers(followers, sheet, (followersCounter + 1))
         followersCounter += len(followers["users"])
 
-        print("Followers added: {}".format(followersCounter))
+        print(f"Followers added: {followersCounter}")
 
         if "next_max_id" in followers:
             nextMaxId = followers["next_max_id"]
@@ -96,8 +98,8 @@ def main():
         else:
             break        
 
-    workbook.save(filename=getSpreadSheetName())
-    print("\nFinished. Total of {} followers added to spreadsheet.".format(followersCounter))
+    workbook.save(filename=getSpreadSheetName(args.pk))
+    print(f"\nFinished. Total of {followersCounter} followers added to spreadsheet.")
 
 if __name__ == '__main__':
     main()
