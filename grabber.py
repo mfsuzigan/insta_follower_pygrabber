@@ -1,23 +1,30 @@
+import argparse
+from datetime import datetime
+from io import BytesIO
+import json
 from openpyxl import load_workbook
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image
-from datetime import datetime
-from io import BytesIO
-from urllib.request import urlopen
 import requests
-import json
-import argparse
+from urllib.request import urlopen
+from urllib.error import HTTPError
+
 
 GENERAL_WIDTH = 18
 PROFILE_IMAGE_WIDTH = 16
 PROFILE_IMAGE_HEIGHT = 115
 INITIAL_FOLLOWERS_REQUEST_MAX_ID = -1
+WORKBOOK_RECORDS_SIZE = 1000
 
 def getImageFromUrl(url):
-    image = Image(BytesIO(urlopen(url).read()))
-    image.length = 150
-    image.height = 150
-    return image
+    try :
+        image = Image(BytesIO(urlopen(url).read()))
+        image.length = 150
+        image.height = 150
+        return image
+
+    except HTTPError:
+        print(f"Failed getting image from {url}.")
 
 def setupSpreadSheet(sheet):
     sheet["A1"] = "pk"
@@ -71,7 +78,9 @@ def writeFollowers(followers, sheet, currentRow):
 
         sheet.row_dimensions[rowNumber].height = PROFILE_IMAGE_HEIGHT
         profileImage = getImageFromUrl(element["profile_pic_url"])
-        sheet.add_image(profileImage, f"E{rowNumber}")
+
+        if profileImage:
+            sheet.add_image(profileImage, f"E{rowNumber}")
 
         print(f"Follower {element['username']} added to spreadsheet")
 
@@ -92,7 +101,8 @@ def getIdForUsername(username, xIgAppId):
 def saveFile(workbook, username):
     filename = getWorkbookName(username)
     workbook.save(filename=filename)
-    print(f"File {filename} saved")
+    print(f"\nFile {filename} saved")
+    
 
 def main():
     args = getArgs()    
@@ -113,11 +123,13 @@ def main():
         rowCounter += len(followers["users"])
         followersCounter += len(followers["users"])
 
-        print(f"\nFollowers added: {followersCounter}\n")
+        print(f"\nFollowers added: {followersCounter}")
 
-        if followersCounter >= (fileSavesCounter + 1) * 1000:
+        if followersCounter >= (fileSavesCounter + 1) * WORKBOOK_RECORDS_SIZE:
             saveFile(workbook, args.username)
             fileSavesCounter += 1
+
+            input("\nPress Enter to continue...")
 
             workbook = getWorkbook()
             rowCounter = 0
